@@ -1,0 +1,39 @@
+services:
+  app:
+    build: .
+    networks:
+      - protohackers-net
+
+  zrok-agent:
+    image: docker.io/openziti/zrok2
+    restart: unless-stopped
+    user: "${UID:-1000}"
+    environment:
+      HOME: /mnt
+    entrypoint:
+      - bash
+      - -c
+      - rm -f /mnt/.zrok2/agent.socket && exec "$@"
+    command:
+      - --
+      - zrok2
+      - agent
+      - start
+      - --console-address
+      - 0.0.0.0
+      - --console-start-port
+      - "8888"
+      - --console-end-port
+      - "8888"
+    expose:
+      - 8888  # agent web console
+    # ports:
+    #   - 8888:8888  # uncomment to publish the agent console on the host
+    volumes:
+      - ${HOME}/.zrok2:/mnt/.zrok2
+    networks:
+      - protohackers-net
+
+networks:
+  protohackers-net:
+    driver: bridge
