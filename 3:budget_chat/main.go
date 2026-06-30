@@ -123,6 +123,14 @@ func (r *room) leave(conn net.Conn) error {
 }
 
 func main() {
+	// recap:
+	//
+	// 1. separate goroutines for read and write
+	// 2. read and write deadlines to prevent blocking and hangs. Use channels alongside it for concurrent writes
+	// 3. use mutex sparringly
+	// 4. graceful shutdown with proper signal and context cancellation
+	// 5. proper error handling and logging
+
 	var wg sync.WaitGroup
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
@@ -222,6 +230,10 @@ func chatHandler(rm *room, cl *client, logger *slog.Logger) {
 		return
 	}
 
+	// Avoid blocking the main operation and launch a separate goroutine that writes to
+	// connected users.
+	//
+	// Read and Write operations must be concurrent, especially when dealing with real-time servers.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go writeLoop(cl, ctx)
