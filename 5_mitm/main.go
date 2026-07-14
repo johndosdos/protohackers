@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"log/slog"
+	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -17,9 +17,12 @@ import (
 
 var ADDR = ":8080"
 var PROTOHACKERS_SERVER_ADDR = "chat.protohackers.com:16963"
+var boguscoinRe = regexp.MustCompile(`^7[a-zA-Z0-9]{25,34}$`)
 
 func main() {
 	// REVERSE PROXY for budget chat
+
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	if testAddr := os.Getenv("TEST_ADDR"); testAddr != "" {
 		ADDR = testAddr
@@ -31,20 +34,15 @@ func main() {
 	// Init waitgroup for goroutines.
 	var wg sync.WaitGroup
 
-	// Init logger.
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		AddSource: true,
-	}))
-
 	// Init proxy.
 	listener, err := net.Listen("tcp", ADDR)
 	if err != nil {
-		logger.Error("TCP listen error", "err", err)
+		log.Println("TCP listen error:", err)
 		return
 	}
 	defer listener.Close()
 
-	logger.Info("Starting proxy server...", "port", ADDR)
+	log.Println("Starting proxy server on port", ADDR)
 
 	// Cleanup guys.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -63,20 +61,20 @@ func main() {
 				break
 			}
 
-			logger.Error("failed TCP accept", "err", err)
+			log.Println("failed TCP accept:", err)
 			continue
 		}
 
 		wg.Go(func() {
-			handleConn(conn, logger)
+			handleConn(conn)
 		})
 	}
 
 	wg.Wait()
-	logger.Info("Stopping proxy server...")
+	log.Println("Stopping proxy server...")
 }
 
-func handleConn(clientConn net.Conn, logger *slog.Logger) {
+func handleConn(clientConn net.Conn) {
 	defer clientConn.Close()
 
 	// Forward the connection to the upstream server.
@@ -84,49 +82,45 @@ func handleConn(clientConn net.Conn, logger *slog.Logger) {
 	// "chat.protohackers.com:16963"
 	upstreamConn, err := net.Dial("tcp", PROTOHACKERS_SERVER_ADDR)
 	if err != nil {
-		logger.Error("TCP dial to upstream server failed", "err", err)
+		log.Println("TCP dial to upstream server failed:", err)
 		return
 	}
 
-	go proxy(clientConn, upstreamConn, logger)
-	proxy(upstreamConn, clientConn, logger)
+	go proxy(clientConn, upstreamConn)
+	proxy(upstreamConn, clientConn)
 }
 
-func proxy(src, dst net.Conn, logger *slog.Logger) {
+func proxy(src, dst net.Conn) {
 	defer dst.Close()
 
 	reader := bufio.NewReader(src)
-	r, err := regexp.Compile(`^7[a-zA-Z0-9]{25,34}$`)
-	if err != nil {
-		return
-	}
 
 	for {
 		message, err := reader.ReadString('\n')
 		if len(message) > 0 {
-			trimmed := rewriteMessage(message, r)
+			trimmed := rewriteMessage(message)
 
 			dst.SetWriteDeadline(time.Now().Add(2 * time.Minute))
 			if _, err := dst.Write([]byte(trimmed)); err != nil {
-				logger.Error("dest write error", "err", err)
+				log.Println("dest write error:", err)
 				return
 			}
 		}
 
 		if err != nil {
-			logger.Error("reader.ReadString error", "err", err)
+			log.Println("reader.ReadString error:", err)
 			return
 		}
 	}
 }
 
-func rewriteMessage(message string, r *regexp.Regexp) string {
+func rewriteMessage(message string) string {
 	hasNewline := strings.HasSuffix(message, "\n")
 	trimmed := strings.TrimSuffix(message, "\n")
 	words := strings.Split(trimmed, " ")
 
 	for i, word := range words {
-		if isBoguscoin(r, word) {
+		if boguscoinRe.MatchString(word) {
 			// If string is a boguscoin, replace it with the correct address.
 			words[i] = "7YWHMfk9JZe0LM0g1ZauHuiSxhI"
 		}
@@ -138,8 +132,4 @@ func rewriteMessage(message string, r *regexp.Regexp) string {
 	}
 
 	return trimmed
-}
-
-func isBoguscoin(r *regexp.Regexp, str string) bool {
-	return r.MatchString(str)
 }

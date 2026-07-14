@@ -1,14 +1,11 @@
 package main
 
 import (
-	"regexp"
 	"testing"
 )
 
 func TestBoguscoin(t *testing.T) {
 	// tonyAddress := "7YWHMfk9JZe0LM0g1ZauHuiSxhI"
-
-	r := regexp.MustCompile(`^7[a-zA-Z0-9]{25,34}$`)
 
 	tests := []struct {
 		name  string
@@ -44,7 +41,7 @@ func TestBoguscoin(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := rewriteMessage(test.input, r)
+			got := rewriteMessage(test.input)
 			if got != test.want {
 				t.Errorf("rewriteMessage(%q) = %q, want=%q", test.input, got, test.want)
 			}
