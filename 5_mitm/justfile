@@ -1,0 +1,15 @@
+test: build
+    TEST_ADDR=:9090 UPSTREAM_TEST_ADDR=:8080 bin/main
+
+build:
+    go build -o bin/main main.go
+    @echo "Done building..."
+
+build-linux:
+    GOOS=linux GOARCH=amd64 go build -o bin/main_linux main.go
+    @echo "Done building..."
+
+build-all: build build-linux
+
+scp-gcp:
+    scp -i ~/.ssh/google_compute_engine bin/main_linux alpao@35.212.139.12:/home/alpao/protohackers/5_mob_in_the_middle/main_linux
