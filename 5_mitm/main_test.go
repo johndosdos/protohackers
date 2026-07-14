@@ -13,45 +13,40 @@ func TestBoguscoin(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
-		want  bool
+		want  string
 	}{
 		{
-			name:  "valid 26 char input",
-			input: "7F1u3wSD5RbOHQmupo9nx4TnhQ",
-			want:  true,
+			name:  "single boguscoin address",
+			input: "please pay 7F1u3wSD5RbOHQmupo9nx4TnhQ",
+			want:  "please pay 7YWHMfk9JZe0LM0g1ZauHuiSxhI",
 		},
 		{
-			name:  "valid 32 char input",
-			input: "7REGLO5mmTPlNZiL5SjsAHdheig4KFjH",
-			want:  true,
+			name:  "multiple boguscoin addresses",
+			input: "please send to 7F1u3wSD5RbOHQmupo9nx4TnhQ and 7adNeSwJkMakpEcln9HEtthSRtxdmEHOT8T",
+			want:  "please send to 7YWHMfk9JZe0LM0g1ZauHuiSxhI and 7YWHMfk9JZe0LM0g1ZauHuiSxhI",
 		},
 		{
-			name:  "doesn't start with 7",
-			input: "4V4Df4q5yMCqlDXnyYFyZKOudnWLzI",
-			want:  false,
+			name:  "no boguscoin address (unchanged)",
+			input: "hello there!",
+			want:  "hello there!",
 		},
 		{
-			name:  "char length [24] doesn't meet requirements",
-			input: "UQkZNuE35WoDoxOrcJ1bbGeU",
-			want:  false,
+			name:  "partial boguscoin address (unchanged)",
+			input: "from 7F1u",
+			want:  "from 7F1u",
 		},
 		{
-			name:  "char length [36] doesn't meet requirements",
-			input: "CHfSwc1W6ZBlbI3RBjn2MXgiVOmaWcctwgnl",
-			want:  false,
-		},
-		{
-			name:  "with multiple whitespace",
-			input: "   7HfSwc1W6ZBlbI3RBjn2MXgiVOmaWcctwgnl   ",
-			want:  false,
+			name:  "preserved newline",
+			input: "hello there\n",
+			want:  "hello there\n",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := isBoguscoin(r, test.input)
+			got := rewriteMessage(test.input, r)
 			if got != test.want {
-				t.Errorf("isBoguscoin(%q) = %t, want=%t", test.input, got, test.want)
+				t.Errorf("rewriteMessage(%q) = %q, want=%q", test.input, got, test.want)
 			}
 		})
 	}

@@ -88,11 +88,11 @@ func handleConn(clientConn net.Conn, logger *slog.Logger) {
 		return
 	}
 
-	go proxy(clientConn, upstreamConn)
-	proxy(upstreamConn, clientConn)
+	go proxy(clientConn, upstreamConn, logger)
+	proxy(upstreamConn, clientConn, logger)
 }
 
-func proxy(src, dst net.Conn) {
+func proxy(src, dst net.Conn, logger *slog.Logger) {
 	defer dst.Close()
 
 	reader := bufio.NewReader(src)
@@ -104,32 +104,40 @@ func proxy(src, dst net.Conn) {
 	for {
 		message, err := reader.ReadString('\n')
 		if len(message) > 0 {
-			hasNewline := strings.HasSuffix(message, "\n")
-			trimmed := strings.TrimSuffix(message, "\n")
-			words := strings.Split(trimmed, " ")
-
-			for i, word := range words {
-				if isBoguscoin(r, word) {
-					// If string is a boguscoin, replace it with the correct address.
-					words[i] = "7YWHMfk9JZe0LM0g1ZauHuiSxhI"
-				}
-			}
-
-			trimmed = strings.Join(words, " ")
-			if hasNewline {
-				trimmed += "\n"
-			}
+			trimmed := rewriteMessage(message, r)
 
 			dst.SetWriteDeadline(time.Now().Add(2 * time.Minute))
 			if _, err := dst.Write([]byte(trimmed)); err != nil {
+				logger.Error("dest write error", "err", err)
 				return
 			}
 		}
 
 		if err != nil {
+			logger.Error("reader.ReadString error", "err", err)
 			return
 		}
 	}
+}
+
+func rewriteMessage(message string, r *regexp.Regexp) string {
+	hasNewline := strings.HasSuffix(message, "\n")
+	trimmed := strings.TrimSuffix(message, "\n")
+	words := strings.Split(trimmed, " ")
+
+	for i, word := range words {
+		if isBoguscoin(r, word) {
+			// If string is a boguscoin, replace it with the correct address.
+			words[i] = "7YWHMfk9JZe0LM0g1ZauHuiSxhI"
+		}
+	}
+
+	trimmed = strings.Join(words, " ")
+	if hasNewline {
+		trimmed += "\n"
+	}
+
+	return trimmed
 }
 
 func isBoguscoin(r *regexp.Regexp, str string) bool {
