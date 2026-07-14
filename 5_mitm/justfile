@@ -1,5 +1,5 @@
-test: build
-    TEST_ADDR=:9090 UPSTREAM_TEST_ADDR=:8080 bin/main
+test:
+    TEST_ADDR=:9090 UPSTREAM_TEST_ADDR=:8080 go test -v -cover .
 
 build:
     go build -o bin/main main.go
